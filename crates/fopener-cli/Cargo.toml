@@ -1,0 +1,18 @@
+[package]
+name = "fopener-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "fopener"
+path = "src/main.rs"
+
+[dependencies]
+fopener-core = { path = "../fopener-core" }
+fopener-config = { path = "../fopener-config" }
+fopener-watcher = { path = "../fopener-watcher" }
+fopener-actions = { path = "../fopener-actions" }
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

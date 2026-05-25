@@ -2,6 +2,10 @@
 members = [
     "crates/fopener-core",
     "crates/fopener-config",
+    "crates/fopener-watcher",
+    "crates/fopener-actions",
+    "crates/fopener-cli",
+    "crates/fopener-gui-fltk",
 ]
 resolver = "2"
 

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Open XML exports",
+      "enabled": true,
+      "path": "/tmp/watch",
+      "include_subdirectories": false,
+      "file_mask": "*.xml",
+      "regex": "^export_.*\\.xml$",
+      "action": {
+        "executable": "xdg-open",
+        "arguments": ["{file}"]
+      },
+      "debounce_ms": 1000,
+      "wait_until_stable": true,
+      "stable_check_ms": 300,
+      "stable_checks_count": 3,
+      "ready_timeout_sec": 30
+    }
+  ]
+}

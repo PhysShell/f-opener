@@ -1,0 +1,9 @@
+[package]
+name = "fopener-actions"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fopener-core = { path = "../fopener-core" }
+anyhow = { workspace = true }
+tracing = { workspace = true }

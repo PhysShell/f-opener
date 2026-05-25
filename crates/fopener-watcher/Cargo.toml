@@ -1,0 +1,11 @@
+[package]
+name = "fopener-watcher"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fopener-core = { path = "../fopener-core" }
+fopener-actions = { path = "../fopener-actions" }
+notify = "6"
+anyhow = { workspace = true }
+tracing = { workspace = true }
