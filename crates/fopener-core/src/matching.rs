@@ -1,9 +1,12 @@
-use crate::types::{FileCandidate, IgnoreReason, MatchDecision, WatchRule};
-use globset::{Glob, GlobMatcher};
-use regex::Regex;
 use std::path::Path;
 
-/// Default ignore patterns — files matching these are silently skipped
+use globset::{Glob, GlobMatcher};
+use regex::Regex;
+
+use crate::error::CoreError;
+use crate::types::{FileCandidate, IgnoreReason, MatchDecision, WatchRule};
+
+/// Default ignore patterns — files matching these are silently skipped.
 pub const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
     "*.tmp",
     "*.part",
@@ -13,39 +16,37 @@ pub const DEFAULT_IGNORE_PATTERNS: &[&str] = &[
     "*.swp",
 ];
 
+#[derive(Debug)]
 pub struct RuleMatcher {
-    #[allow(dead_code)]
-    rule_id: String,
     glob_matcher: GlobMatcher,
     regex: Option<Regex>,
     ignore_matchers: Vec<(String, GlobMatcher)>,
 }
 
 impl RuleMatcher {
-    pub fn new(rule: &WatchRule) -> Result<Self, crate::error::CoreError> {
-        let glob = Glob::new(&rule.file_mask)
-            .map_err(|e| crate::error::CoreError::InvalidGlob(e.to_string()))?;
+    pub fn new(rule: &WatchRule) -> Result<Self, CoreError> {
+        let glob = Glob::new(&rule.file_mask).map_err(|e| CoreError::InvalidGlob(e.to_string()))?;
         let glob_matcher = glob.compile_matcher();
 
-        let regex = if let Some(ref pattern) = rule.regex {
-            Some(
-                Regex::new(pattern)
-                    .map_err(|e| crate::error::CoreError::InvalidRegex(e.to_string()))?,
-            )
-        } else {
-            None
-        };
+        let regex = rule
+            .regex
+            .as_deref()
+            .map(|pattern| Regex::new(pattern).map_err(|e| CoreError::InvalidRegex(e.to_string())))
+            .transpose()?;
 
         let ignore_matchers = DEFAULT_IGNORE_PATTERNS
             .iter()
             .map(|p| {
-                let g = Glob::new(p).expect("built-in ignore pattern is valid");
-                (p.to_string(), g.compile_matcher())
+                // Built-in patterns are static literals; failure here is a
+                // bug in the constants, not a runtime condition.
+                let g = Glob::new(p).map_err(|e| {
+                    CoreError::InvalidGlob(format!("built-in ignore pattern {p:?}: {e}"))
+                })?;
+                Ok::<_, CoreError>(((*p).to_owned(), g.compile_matcher()))
             })
-            .collect();
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(Self {
-            rule_id: rule.id.clone(),
             glob_matcher,
             regex,
             ignore_matchers,
@@ -59,7 +60,6 @@ impl RuleMatcher {
             };
         }
 
-        // Check path containment
         let in_folder = if rule.include_subdirectories {
             candidate.path.starts_with(&rule.path)
         } else {
@@ -71,7 +71,6 @@ impl RuleMatcher {
             };
         }
 
-        // Must be a file (skip directories)
         if candidate.path.is_dir() {
             return MatchDecision::Ignored {
                 reason: IgnoreReason::IsDirectory,
@@ -80,7 +79,6 @@ impl RuleMatcher {
 
         let file_name = Path::new(&candidate.file_name);
 
-        // Check default ignore patterns first
         for (pattern, matcher) in &self.ignore_matchers {
             if matcher.is_match(file_name) {
                 return MatchDecision::Ignored {
@@ -91,15 +89,13 @@ impl RuleMatcher {
             }
         }
 
-        // Check glob mask
         if !self.glob_matcher.is_match(file_name) {
             return MatchDecision::Ignored {
                 reason: IgnoreReason::MaskNotMatched,
             };
         }
 
-        // Check optional regex
-        if let Some(ref re) = self.regex {
+        if let Some(re) = &self.regex {
             if !re.is_match(&candidate.file_name) {
                 return MatchDecision::Ignored {
                     reason: IgnoreReason::RegexNotMatched,
@@ -120,23 +116,33 @@ pub fn validate_regex(pattern: &str) -> Result<(), String> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::missing_assert_message,
+    clippy::shadow_unrelated,
+    clippy::indexing_slicing,
+    reason = "tests assert invariants; concise unwraps are appropriate"
+)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
     use crate::types::{ActionTemplate, WatchRule};
-    use std::path::PathBuf;
 
     fn make_rule(mask: &str, regex: Option<&str>, path: &str) -> WatchRule {
         WatchRule {
-            id: "test".to_string(),
-            name: "Test".to_string(),
+            id: "test".to_owned(),
+            name: "Test".to_owned(),
             enabled: true,
             path: PathBuf::from(path),
             include_subdirectories: false,
-            file_mask: mask.to_string(),
-            regex: regex.map(|s| s.to_string()),
+            file_mask: mask.to_owned(),
+            regex: regex.map(str::to_owned),
             action: ActionTemplate {
                 executable: PathBuf::from("notepad.exe"),
-                arguments: vec!["{file}".to_string()],
+                arguments: vec!["{file}".to_owned()],
             },
             debounce_ms: 1000,
             wait_until_stable: true,
@@ -150,7 +156,7 @@ mod tests {
         let path = PathBuf::from(folder).join(filename);
         FileCandidate {
             path,
-            file_name: filename.to_string(),
+            file_name: filename.to_owned(),
             size: Some(1024),
         }
     }
@@ -160,7 +166,10 @@ mod tests {
         let rule = make_rule("*.xml", None, "/watch");
         let matcher = RuleMatcher::new(&rule).unwrap();
         let candidate = make_candidate("/watch", "export_123.xml");
-        assert!(matches!(matcher.decide(&rule, &candidate), MatchDecision::Matched));
+        assert!(matches!(
+            matcher.decide(&rule, &candidate),
+            MatchDecision::Matched
+        ));
     }
 
     #[test]
@@ -181,7 +190,10 @@ mod tests {
         let rule = make_rule("*.xml", Some("^export_.*\\.xml$"), "/watch");
         let matcher = RuleMatcher::new(&rule).unwrap();
         let candidate = make_candidate("/watch", "export_123.xml");
-        assert!(matches!(matcher.decide(&rule, &candidate), MatchDecision::Matched));
+        assert!(matches!(
+            matcher.decide(&rule, &candidate),
+            MatchDecision::Matched
+        ));
     }
 
     #[test]
@@ -260,6 +272,6 @@ mod tests {
     #[test]
     fn test_invalid_regex_returns_error() {
         let rule = make_rule("*.xml", Some("[invalid"), "/watch");
-        assert!(RuleMatcher::new(&rule).is_err());
+        RuleMatcher::new(&rule).unwrap_err();
     }
 }

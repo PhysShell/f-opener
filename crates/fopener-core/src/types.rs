@@ -1,4 +1,7 @@
+use std::fmt;
+use std::fs;
 use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -29,11 +32,11 @@ impl WatchRule {
             enabled: true,
             path: PathBuf::from("."),
             include_subdirectories: false,
-            file_mask: "*".to_string(),
+            file_mask: "*".to_owned(),
             regex: None,
             action: ActionTemplate {
                 executable: PathBuf::new(),
-                arguments: vec!["{file}".to_string()],
+                arguments: vec!["{file}".to_owned()],
             },
             debounce_ms: 1000,
             wait_until_stable: true,
@@ -61,9 +64,9 @@ impl FileCandidate {
     pub fn from_path(path: PathBuf) -> Self {
         let file_name = path
             .file_name()
-            .map(|n| n.to_string_lossy().to_string())
+            .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
-        let size = std::fs::metadata(&path).ok().map(|m| m.len());
+        let size = fs::metadata(&path).ok().map(|m| m.len());
         Self {
             path,
             file_name,
@@ -88,15 +91,15 @@ pub enum IgnoreReason {
     DefaultIgnorePattern { pattern: String },
 }
 
-impl std::fmt::Display for IgnoreReason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for IgnoreReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            IgnoreReason::RuleDisabled => write!(f, "rule is disabled"),
-            IgnoreReason::NotInFolder => write!(f, "not in watched folder"),
-            IgnoreReason::IsDirectory => write!(f, "is a directory"),
-            IgnoreReason::MaskNotMatched => write!(f, "file mask not matched"),
-            IgnoreReason::RegexNotMatched => write!(f, "regex not matched"),
-            IgnoreReason::DefaultIgnorePattern { pattern } => {
+            Self::RuleDisabled => write!(f, "rule is disabled"),
+            Self::NotInFolder => write!(f, "not in watched folder"),
+            Self::IsDirectory => write!(f, "is a directory"),
+            Self::MaskNotMatched => write!(f, "file mask not matched"),
+            Self::RegexNotMatched => write!(f, "regex not matched"),
+            Self::DefaultIgnorePattern { pattern } => {
                 write!(f, "matches ignore pattern: {pattern}")
             }
         }
@@ -105,15 +108,47 @@ impl std::fmt::Display for IgnoreReason {
 
 #[derive(Debug, Clone)]
 pub enum AppEvent {
-    RuleStarted { rule_id: RuleId },
-    RuleStopped { rule_id: RuleId },
-    FileDetected { rule_id: RuleId, path: PathBuf },
-    FileIgnored { rule_id: RuleId, path: PathBuf, reason: String },
-    FileMatched { rule_id: RuleId, path: PathBuf },
-    FileReady { rule_id: RuleId, path: PathBuf },
-    ActionStarted { rule_id: RuleId, executable: PathBuf, arguments: Vec<String> },
-    ActionCompleted { rule_id: RuleId, path: PathBuf },
-    ActionFailed { rule_id: RuleId, path: PathBuf, error: String },
-    Warning { message: String },
-    Error { message: String },
+    RuleStarted {
+        rule_id: RuleId,
+    },
+    RuleStopped {
+        rule_id: RuleId,
+    },
+    FileDetected {
+        rule_id: RuleId,
+        path: PathBuf,
+    },
+    FileIgnored {
+        rule_id: RuleId,
+        path: PathBuf,
+        reason: String,
+    },
+    FileMatched {
+        rule_id: RuleId,
+        path: PathBuf,
+    },
+    FileReady {
+        rule_id: RuleId,
+        path: PathBuf,
+    },
+    ActionStarted {
+        rule_id: RuleId,
+        executable: PathBuf,
+        arguments: Vec<String>,
+    },
+    ActionCompleted {
+        rule_id: RuleId,
+        path: PathBuf,
+    },
+    ActionFailed {
+        rule_id: RuleId,
+        path: PathBuf,
+        error: String,
+    },
+    Warning {
+        message: String,
+    },
+    Error {
+        message: String,
+    },
 }
