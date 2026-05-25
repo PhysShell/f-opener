@@ -1,9 +1,20 @@
 [package]
-name = "fopener-actions"
-version = "0.1.0"
-edition = "2021"
+name        = "fopener-actions"
+description = "Action runner, placeholder rendering, and process launching for F-Opener."
+keywords    = ["actions", "process", "spawn", "f-opener"]
+categories  = ["command-line-utilities", "os"]
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+homepage.workspace     = true
+readme.workspace       = true
 
 [dependencies]
 fopener-core = { path = "../fopener-core" }
 anyhow = { workspace = true }
 tracing = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,7 +1,15 @@
 [package]
-name = "fopener-gui-fltk"
-version = "0.1.0"
-edition = "2021"
+name        = "fopener-gui-fltk"
+description = "FLTK-based desktop GUI for F-Opener: rules table, edit dialog, log panel."
+keywords    = ["gui", "fltk", "f-opener"]
+categories  = ["gui"]
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+homepage.workspace     = true
+readme.workspace       = true
 
 [[bin]]
 name = "fopener-gui"
@@ -18,3 +26,6 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 chrono = "0.4"
 regex = { workspace = true }
+
+[lints]
+workspace = true

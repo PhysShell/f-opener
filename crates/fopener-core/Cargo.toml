@@ -1,7 +1,15 @@
 [package]
-name = "fopener-core"
-version = "0.1.0"
-edition = "2021"
+name        = "fopener-core"
+description = "Domain types, rule matching, validation, events, and errors for F-Opener."
+keywords    = ["file-watcher", "automation", "rules", "matching"]
+categories  = ["filesystem", "command-line-utilities"]
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+homepage.workspace     = true
+readme.workspace       = true
 
 [dependencies]
 serde = { workspace = true }
@@ -14,3 +22,6 @@ uuid = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"
+
+[lints]
+workspace = true
