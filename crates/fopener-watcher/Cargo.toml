@@ -1,7 +1,15 @@
 [package]
-name = "fopener-watcher"
-version = "0.1.0"
-edition = "2021"
+name        = "fopener-watcher"
+description = "Filesystem watcher engine with stability checking for F-Opener."
+keywords    = ["fs-watcher", "notify", "f-opener"]
+categories  = ["filesystem", "asynchronous"]
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+license.workspace      = true
+repository.workspace   = true
+homepage.workspace     = true
+readme.workspace       = true
 
 [dependencies]
 fopener-core = { path = "../fopener-core" }
@@ -9,3 +17,6 @@ fopener-actions = { path = "../fopener-actions" }
 notify = "6"
 anyhow = { workspace = true }
 tracing = { workspace = true }
+
+[lints]
+workspace = true

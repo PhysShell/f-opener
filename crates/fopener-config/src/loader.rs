@@ -1,12 +1,15 @@
-use crate::schema::AppConfig;
-use anyhow::{Context, Result};
+use std::fs;
 use std::path::Path;
+
+use anyhow::{Context, Result};
+
+use crate::schema::AppConfig;
 
 pub fn load_config(path: &Path) -> Result<AppConfig> {
     if !path.exists() {
         return Ok(AppConfig::default());
     }
-    let content = std::fs::read_to_string(path)
+    let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read config: {}", path.display()))?;
     let config: AppConfig = serde_json::from_str(&content)
         .with_context(|| format!("Failed to parse config: {}", path.display()))?;
@@ -15,43 +18,53 @@ pub fn load_config(path: &Path) -> Result<AppConfig> {
 
 pub fn save_config(path: &Path, config: &AppConfig) -> Result<()> {
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
+        fs::create_dir_all(parent)
             .with_context(|| format!("Failed to create config directory: {}", parent.display()))?;
     }
-    let content = serde_json::to_string_pretty(config)
-        .context("Failed to serialize config")?;
-    std::fs::write(path, content)
+    let content = serde_json::to_string_pretty(config).context("Failed to serialize config")?;
+    fs::write(path, content)
         .with_context(|| format!("Failed to write config: {}", path.display()))?;
     Ok(())
 }
 
-fn migrate(config: AppConfig) -> AppConfig {
-    // Future migrations go here based on config.version
+const fn migrate(config: AppConfig) -> AppConfig {
+    // Future migrations dispatch on `config.version`.
     config
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::missing_assert_message,
+    clippy::indexing_slicing,
+    clippy::shadow_unrelated,
+    reason = "tests assert invariants; concise unwraps are appropriate"
+)]
 mod tests {
+    use std::path::PathBuf;
+
+    use fopener_core::types::{ActionTemplate, WatchRule};
+    use tempfile::tempdir;
+
     use super::*;
     use crate::schema::AppConfig;
-    use fopener_core::types::{ActionTemplate, WatchRule};
-    use std::path::PathBuf;
-    use tempfile::tempdir;
 
     fn sample_config() -> AppConfig {
         AppConfig {
             version: 1,
             rules: vec![WatchRule {
-                id: "test-id".to_string(),
-                name: "Test Rule".to_string(),
+                id: "test-id".to_owned(),
+                name: "Test Rule".to_owned(),
                 enabled: true,
                 path: PathBuf::from("/tmp/watch"),
                 include_subdirectories: false,
-                file_mask: "*.xml".to_string(),
+                file_mask: "*.xml".to_owned(),
                 regex: None,
                 action: ActionTemplate {
                     executable: PathBuf::from("editor"),
-                    arguments: vec!["{file}".to_string()],
+                    arguments: vec!["{file}".to_owned()],
                 },
                 debounce_ms: 1000,
                 wait_until_stable: true,
@@ -101,9 +114,8 @@ mod tests {
     fn test_load_invalid_json_errors() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("bad.json");
-        std::fs::write(&path, b"{ not valid json }").unwrap();
+        fs::write(&path, b"{ not valid json }").unwrap();
 
-        let result = load_config(&path);
-        assert!(result.is_err());
+        load_config(&path).unwrap_err();
     }
 }

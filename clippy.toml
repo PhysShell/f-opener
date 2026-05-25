@@ -1,0 +1,21 @@
+# Complexity / size thresholds.
+cognitive-complexity-threshold = 15
+too-many-arguments-threshold   = 5
+too-many-lines-threshold       = 80
+type-complexity-threshold      = 150
+pass-by-value-size-limit       = 192
+array-size-threshold           = 16384
+
+doc-valid-idents = [
+    "JSON", "TOML", "YAML", "URL", "URI", "CLI", "API", "ID",
+    "OS", "UUID", "FLTK", "GUI",
+]
+
+disallowed-methods = [
+    { path = "std::env::set_var",    reason = "racy in multithreaded code; pass values explicitly" },
+    { path = "std::env::remove_var", reason = "racy in multithreaded code" },
+]
+
+disallowed-macros = [
+    { path = "std::dbg", reason = "use tracing::debug! instead" },
+]

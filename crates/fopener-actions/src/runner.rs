@@ -1,7 +1,10 @@
-use fopener_core::types::WatchRule;
-use anyhow::Result;
 use std::path::Path;
 use std::process::Command;
+use std::sync::Mutex;
+
+use anyhow::{anyhow, Result};
+use fopener_core::types::WatchRule;
+
 use crate::placeholders::render_arguments;
 
 #[derive(Debug, Clone)]
@@ -14,6 +17,7 @@ pub trait ActionRunner: Send + Sync {
     fn run(&self, rule: &WatchRule, file: &Path) -> Result<ActionResult>;
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct ProcessActionRunner;
 
 impl ActionRunner for ProcessActionRunner {
@@ -23,15 +27,16 @@ impl ActionRunner for ProcessActionRunner {
         let mut cmd = Command::new(&rule.action.executable);
         cmd.args(&args);
 
-        // On Windows, detach from console
+        // On Windows, detach from console so the parent CLI does not block.
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x00000008); // DETACHED_PROCESS
+            const DETACHED_PROCESS: u32 = 0x0000_0008;
+            cmd.creation_flags(DETACHED_PROCESS);
         }
 
         cmd.spawn()
-            .map(|_| ActionResult {
+            .map(|_child| ActionResult {
                 success: true,
                 message: format!(
                     "Launched {} with args: {}",
@@ -39,41 +44,37 @@ impl ActionRunner for ProcessActionRunner {
                     args.join(" ")
                 ),
             })
-            .map_err(|e| anyhow::anyhow!(
-                "Failed to launch {}: {}",
-                rule.action.executable.display(),
-                e
-            ))
+            .map_err(|e| anyhow!("Failed to launch {}: {e}", rule.action.executable.display()))
     }
 }
 
-/// Fake runner for tests — records calls without launching anything
+/// Fake runner for tests — records calls without launching any process.
+#[derive(Debug, Default)]
 pub struct FakeActionRunner {
-    pub calls: std::sync::Mutex<Vec<(String, String)>>, // (rule_id, file_path)
+    pub calls: Mutex<Vec<(String, String)>>,
 }
 
 impl FakeActionRunner {
     pub fn new() -> Self {
-        Self { calls: std::sync::Mutex::new(Vec::new()) }
+        Self::default()
     }
 
+    /// Returns the number of recorded calls, or `0` if the internal
+    /// mutex has been poisoned by a panic in another thread.
     pub fn call_count(&self) -> usize {
-        self.calls.lock().unwrap().len()
-    }
-}
-
-impl Default for FakeActionRunner {
-    fn default() -> Self {
-        Self::new()
+        self.calls.lock().map(|g| g.len()).unwrap_or(0)
     }
 }
 
 impl ActionRunner for FakeActionRunner {
     fn run(&self, rule: &WatchRule, file: &Path) -> Result<ActionResult> {
-        self.calls.lock().unwrap().push((
-            rule.id.clone(),
-            file.to_string_lossy().to_string(),
-        ));
+        {
+            let mut guard = self
+                .calls
+                .lock()
+                .map_err(|_poisoned| anyhow!("FakeActionRunner call log mutex poisoned"))?;
+            guard.push((rule.id.clone(), file.to_string_lossy().into_owned()));
+        }
         Ok(ActionResult {
             success: true,
             message: format!("Fake: would open {} for rule {}", file.display(), rule.id),

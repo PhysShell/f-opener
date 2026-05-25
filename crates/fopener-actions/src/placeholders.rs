@@ -1,48 +1,76 @@
-use fopener_core::types::{ActionTemplate, WatchRule};
 use std::path::Path;
 
+use fopener_core::types::{ActionTemplate, WatchRule};
+
+/// Render argument templates with placeholders substituted.
+///
+/// Recognised tokens (intentionally formatted as `{name}` so they read
+/// like format-string args even though they are plain text): `{file}`,
+/// `{dir}`, `{filename}`, `{stem}`, `{ext}`, `{rule}`.
+#[allow(
+    clippy::literal_string_with_formatting_args,
+    reason = "tokens look like format args but are user-facing placeholders"
+)]
 pub fn render_arguments(template: &ActionTemplate, file: &Path, rule: &WatchRule) -> Vec<String> {
-    let dir = file.parent()
-        .map(|p| p.to_string_lossy().to_string())
+    let dir = file
+        .parent()
+        .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let filename = file.file_name()
-        .map(|n| n.to_string_lossy().to_string())
+    let filename = file
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let stem = file.file_stem()
-        .map(|n| n.to_string_lossy().to_string())
+    let stem = file
+        .file_stem()
+        .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let ext = file.extension()
-        .map(|n| n.to_string_lossy().to_string())
+    let ext = file
+        .extension()
+        .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
 
-    template.arguments.iter().map(|arg| {
-        arg.replace("{file}", &file.to_string_lossy())
-            .replace("{dir}", &dir)
-            .replace("{filename}", &filename)
-            .replace("{stem}", &stem)
-            .replace("{ext}", &ext)
-            .replace("{rule}", &rule.name)
-    }).collect()
+    template
+        .arguments
+        .iter()
+        .map(|arg| {
+            arg.replace("{file}", &file.to_string_lossy())
+                .replace("{dir}", &dir)
+                .replace("{filename}", &filename)
+                .replace("{stem}", &stem)
+                .replace("{ext}", &ext)
+                .replace("{rule}", &rule.name)
+        })
+        .collect()
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::missing_assert_message,
+    clippy::literal_string_with_formatting_args,
+    reason = "tests assert invariants; placeholder tokens look like format args"
+)]
 mod tests {
-    use super::*;
-    use fopener_core::types::{ActionTemplate, WatchRule};
     use std::path::PathBuf;
+
+    use fopener_core::types::{ActionTemplate, WatchRule};
+
+    use super::*;
 
     fn make_rule() -> WatchRule {
         WatchRule {
-            id: "test".into(),
-            name: "Export XML".into(),
+            id: "test".to_owned(),
+            name: "Export XML".to_owned(),
             enabled: true,
             path: PathBuf::from("/watch"),
             include_subdirectories: false,
-            file_mask: "*.xml".into(),
+            file_mask: "*.xml".to_owned(),
             regex: None,
             action: ActionTemplate {
                 executable: PathBuf::from("editor"),
-                arguments: vec!["{file}".into()],
+                arguments: vec!["{file}".to_owned()],
             },
             debounce_ms: 1000,
             wait_until_stable: true,
@@ -57,7 +85,7 @@ mod tests {
         let rule = make_rule();
         let template = ActionTemplate {
             executable: PathBuf::from("editor"),
-            arguments: vec!["{file}".into()],
+            arguments: vec!["{file}".to_owned()],
         };
         let args = render_arguments(&template, Path::new("/watch/export_123.xml"), &rule);
         assert_eq!(args, vec!["/watch/export_123.xml"]);
@@ -68,7 +96,7 @@ mod tests {
         let rule = make_rule();
         let template = ActionTemplate {
             executable: PathBuf::from("editor"),
-            arguments: vec!["{stem}".into(), "{ext}".into()],
+            arguments: vec!["{stem}".to_owned(), "{ext}".to_owned()],
         };
         let args = render_arguments(&template, Path::new("/watch/export_123.xml"), &rule);
         assert_eq!(args, vec!["export_123", "xml"]);
@@ -79,7 +107,7 @@ mod tests {
         let rule = make_rule();
         let template = ActionTemplate {
             executable: PathBuf::from("editor"),
-            arguments: vec!["{rule}".into()],
+            arguments: vec!["{rule}".to_owned()],
         };
         let args = render_arguments(&template, Path::new("/watch/file.xml"), &rule);
         assert_eq!(args, vec!["Export XML"]);
@@ -90,7 +118,7 @@ mod tests {
         let rule = make_rule();
         let template = ActionTemplate {
             executable: PathBuf::from("editor"),
-            arguments: vec!["{dir}".into()],
+            arguments: vec!["{dir}".to_owned()],
         };
         let args = render_arguments(&template, Path::new("/watch/export_123.xml"), &rule);
         assert_eq!(args, vec!["/watch"]);
